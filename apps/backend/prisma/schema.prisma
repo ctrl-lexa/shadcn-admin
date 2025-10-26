@@ -1,0 +1,819 @@
+// Bermadani SaaS - Multi-tenant Database Schema
+// Generated from DATABASE_SCHEMA.md
+// PostgreSQL 16 with Row Level Security (RLS)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// PLATFORM & TENANCY MODELS
+// ============================================================================
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique // subdomain: {slug}.bermadani.id
+  logo        String?
+  description String?
+  
+  // Plan & Billing
+  planId      String
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id])
+  planExpiry  DateTime?
+  trialEndsAt DateTime?
+  
+  // Status
+  status      TenantStatus @default(ACTIVE)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  
+  // Relations
+  outlets     Outlet[]
+  users       User[]
+  roles       Role[]
+  permissions Permission[]
+  entitlements TenantEntitlement[]
+  subscriptions Subscription[]
+  invoices    Invoice[]
+  usageRecords UsageRecord[]
+  
+  // Audit
+  auditLogs   AuditLog[]
+  
+  @@index([slug])
+  @@index([status])
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  CANCELLED
+}
+
+model Outlet {
+  id          String  @id @default(uuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  name        String
+  code        String  // T001, T002, etc
+  type        OutletType @default(RETAIL)
+  
+  // Contact
+  phone       String?
+  email       String?
+  address     String?
+  city        String?
+  province    String?
+  postalCode  String?
+  
+  // Settings
+  timezone    String  @default("Asia/Jakarta")
+  currency    String  @default("IDR")
+  taxRate     Float   @default(11.0) // PPN 11%
+  
+  // Status
+  isActive    Boolean @default(true)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  
+  // Relations
+  users       User[]
+  products    Product[]
+  transactions Transaction[]
+  shifts      Shift[]
+  stockMovements StockMovement[]
+  
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([isActive])
+  @@map("outlets")
+}
+
+enum OutletType {
+  RETAIL      // Minimarket, convenience store
+  FNB         // Restaurant, cafe
+  SALON       // Salon, spa
+  WORKSHOP    // Car workshop, service center
+  CLINIC      // Medical clinic
+  GYM         // Fitness center
+  LAUNDRY     // Laundry service
+  OTHER
+}
+
+// ============================================================================
+// USER & RBAC MODELS
+// ============================================================================
+
+model User {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Basic Info
+  username    String   @unique
+  email       String   @unique
+  phone       String?
+  
+  // Password (hashed)
+  passwordHash String
+  
+  // Profile
+  firstName   String
+  lastName    String?
+  avatar      String?
+  
+  // Role & Permissions
+  roleId      String?
+  role        Role?    @relation(fields: [roleId], references: [id])
+  
+  // Assignment
+  outletId    String?  // Default outlet
+  outlet      Outlet?  @relation(fields: [outletId], references: [id])
+  
+  // Status
+  isActive    Boolean  @default(true)
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+  
+  // Security
+  lastLoginAt DateTime?
+  lastLoginIp String?
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  
+  // Relations
+  refreshTokens RefreshToken[]
+  transactions  Transaction[]
+  shifts        Shift[]
+  
+  // Audit
+  auditLogs     AuditLog[]
+  
+  @@index([tenantId])
+  @@index([username])
+  @@index([email])
+  @@index([roleId])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  name        String   // Owner, Admin, Manager, Cashier, etc
+  description String?
+  
+  // System roles (cannot be deleted)
+  isSystem    Boolean  @default(false)
+  
+  // Hierarchy (for approval workflows)
+  level       Int      @default(0)
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  users       User[]
+  permissions RolePermission[]
+  
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  tenantId    String?  // NULL for platform permissions
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  resource    String   // pos, inventory, supplier, koperasi, etc
+  action      String   // create, read, update, delete, approve, etc
+  scope       String   // own, outlet, tenant, all
+  
+  // Permission format: resource.action.scope
+  // Example: pos.transaction.create.outlet
+  code        String   @unique
+  
+  description String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  roles       RolePermission[]
+  
+  @@index([tenantId])
+  @@index([code])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime @default(now())
+  
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token       String   @unique
+  expiresAt   DateTime
+  
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+  
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// SUBSCRIPTION & BILLING MODELS
+// ============================================================================
+
+model SubscriptionPlan {
+  id          String   @id @default(uuid())
+  
+  name        String   @unique // Starter, Business, Pro, Enterprise
+  code        String   @unique // starter, business, pro, enterprise
+  description String?
+  
+  // Pricing
+  monthlyPrice  Int    // in cents (Rp 129,000 = 12900000)
+  annualPrice   Int?   // Optional annual pricing
+  
+  // Features (JSON)
+  features      Json   // Array of feature codes
+  
+  // Limits
+  maxOutlets    Int    @default(1)
+  maxProducts   Int    @default(100)
+  maxUsers      Int    @default(3)
+  maxStorage    Int    @default(1024) // in MB
+  
+  // Status
+  isActive      Boolean @default(true)
+  isPublic      Boolean @default(true)
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  tenants       Tenant[]
+  subscriptions Subscription[]
+  
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  planId      String
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id])
+  
+  // Period
+  startDate   DateTime
+  endDate     DateTime
+  
+  // Billing
+  billingCycle  BillingCycle @default(MONTHLY)
+  amount        Int          // in cents
+  
+  // Status
+  status        SubscriptionStatus @default(ACTIVE)
+  
+  // Auto-renewal
+  autoRenew     Boolean @default(true)
+  cancelledAt   DateTime?
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  invoices      Invoice[]
+  
+  @@index([tenantId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+}
+
+model Invoice {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  
+  invoiceNumber   String   @unique
+  
+  // Amount
+  subtotal        Int      // in cents
+  tax             Int      // in cents
+  discount        Int      @default(0)
+  total           Int      // in cents
+  
+  // Payment
+  status          InvoiceStatus @default(PENDING)
+  dueDate         DateTime
+  paidAt          DateTime?
+  paymentMethod   String?  // bank_transfer, qris, credit_card, etc
+  paymentReference String?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([tenantId])
+  @@index([invoiceNumber])
+  @@index([status])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model TenantEntitlement {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  feature     String   // module code or feature flag
+  enabled     Boolean  @default(true)
+  
+  // Usage limits (if applicable)
+  limitValue  Int?
+  
+  // Validity period
+  expiresAt   DateTime?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([tenantId, feature])
+  @@index([tenantId])
+  @@map("tenant_entitlements")
+}
+
+model UsageRecord {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  resource    String   // outlets, products, users, storage, etc
+  amount      Int      // Current usage count
+  
+  recordedAt  DateTime @default(now())
+  
+  @@index([tenantId, resource])
+  @@index([recordedAt])
+  @@map("usage_records")
+}
+
+// To be continued with POS, Inventory, Supplier, Koperasi modules...
+// This is Part 1 - Core models (Platform, Tenancy, RBAC, Billing)
+
+// ============================================================================
+// POS MODULE
+// ============================================================================
+
+model Product {
+  id          String   @id @default(uuid())
+  tenantId    String
+  outletId    String
+  outlet      Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  
+  sku         String
+  barcode     String?
+  name        String
+  description String?
+  
+  // Category
+  categoryId  String?
+  category    ProductCategory? @relation(fields: [categoryId], references: [id])
+  
+  // Pricing (in cents)
+  costPrice   Int      @default(0)
+  sellingPrice Int
+  
+  // Stock
+  currentStock Float   @default(0)
+  minStock     Float   @default(0)
+  maxStock     Float?
+  unit         String   @default("pcs") // pcs, kg, liter, etc
+  
+  // Tax
+  isTaxable   Boolean  @default(true)
+  taxRate     Float    @default(11.0)
+  
+  // Images
+  images      String[] // Array of image URLs
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  
+  // Relations
+  transactionItems TransactionItem[]
+  stockMovements   StockMovement[]
+  
+  @@unique([outletId, sku])
+  @@index([outletId])
+  @@index([barcode])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model ProductCategory {
+  id          String   @id @default(uuid())
+  tenantId    String
+  
+  name        String
+  description String?
+  
+  // Hierarchy
+  parentId    String?
+  parent      ProductCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    ProductCategory[] @relation("CategoryHierarchy")
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  products    Product[]
+  
+  @@index([tenantId])
+  @@map("product_categories")
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  tenantId    String
+  outletId    String
+  outlet      Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  
+  transactionNumber String @unique
+  
+  // Offline support
+  idempotencyKey String? @unique // For offline sync
+  localId        String? // Client-generated ID
+  isOfflineSync  Boolean @default(false)
+  
+  // User
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // Shift
+  shiftId     String?
+  shift       Shift?   @relation(fields: [shiftId], references: [id])
+  
+  // Amounts (in cents)
+  subtotal    Int
+  discount    Int      @default(0)
+  tax         Int      @default(0)
+  total       Int
+  
+  // Payment
+  paymentMethod   String // cash, qris, debit, credit, transfer
+  amountPaid      Int?
+  changeAmount    Int?
+  
+  // Customer
+  customerName    String?
+  customerPhone   String?
+  
+  // Receipt
+  receiptPrinted  Boolean @default(false)
+  receiptData     String? // JSON or base64
+  
+  // Status
+  status      TransactionStatus @default(COMPLETED)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  
+  // Relations
+  items       TransactionItem[]
+  refunds     Refund[]
+  
+  @@index([outletId])
+  @@index([userId])
+  @@index([shiftId])
+  @@index([transactionNumber])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+enum TransactionStatus {
+  COMPLETED
+  REFUNDED
+  PARTIAL_REFUND
+  CANCELLED
+}
+
+model TransactionItem {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  
+  productId     String
+  product       Product     @relation(fields: [productId], references: [id])
+  
+  // Snapshot data (in case product changes later)
+  productName   String
+  productSku    String
+  
+  quantity      Float
+  unitPrice     Int        // in cents
+  discount      Int        @default(0)
+  tax           Int        @default(0)
+  subtotal      Int        // in cents
+  
+  @@index([transactionId])
+  @@index([productId])
+  @@map("transaction_items")
+}
+
+model Shift {
+  id          String   @id @default(uuid())
+  tenantId    String
+  outletId    String
+  outlet      Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  
+  shiftNumber String
+  
+  // User
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // Period
+  startTime   DateTime
+  endTime     DateTime?
+  
+  // Cash
+  openingCash Int      // in cents
+  closingCash Int?     // in cents
+  expectedCash Int?    // in cents
+  variance    Int?     // in cents
+  
+  // Summary
+  totalTransactions Int @default(0)
+  totalSales        Int @default(0) // in cents
+  
+  // Notes
+  openingNotes String?
+  closingNotes String?
+  
+  // Status
+  status      ShiftStatus @default(OPEN)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  transactions Transaction[]
+  
+  @@index([outletId])
+  @@index([userId])
+  @@index([status])
+  @@map("shifts")
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+model Refund {
+  id            String      @id @default(uuid())
+  tenantId      String
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  
+  refundNumber  String      @unique
+  
+  // Amount
+  amount        Int         // in cents
+  reason        String
+  
+  // Approval
+  approvedBy    String?
+  approvedAt    DateTime?
+  
+  // Status
+  status        RefundStatus @default(PENDING)
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([transactionId])
+  @@index([status])
+  @@map("refunds")
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+}
+
+// ============================================================================
+// INVENTORY MODULE
+// ============================================================================
+
+model StockMovement {
+  id          String   @id @default(uuid())
+  tenantId    String
+  outletId    String
+  outlet      Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  
+  // Movement
+  type        StockMovementType
+  quantity    Float
+  
+  // Reference (to transaction, adjustment, transfer, etc)
+  referenceType String? // transaction, adjustment, transfer, purchase
+  referenceId   String?
+  
+  // Stock snapshot
+  stockBefore Float
+  stockAfter  Float
+  
+  // Notes
+  notes       String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  
+  @@index([outletId])
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("stock_movements")
+}
+
+enum StockMovementType {
+  SALE           // From POS transaction
+  REFUND         // Return to stock
+  ADJUSTMENT_IN  // Manual increase
+  ADJUSTMENT_OUT // Manual decrease
+  TRANSFER_IN    // From another outlet
+  TRANSFER_OUT   // To another outlet
+  PURCHASE       // From supplier
+  DAMAGED        // Write-off
+  EXPIRED        // Write-off
+}
+
+model StockAdjustment {
+  id          String   @id @default(uuid())
+  tenantId    String
+  outletId    String
+  
+  adjustmentNumber String @unique
+  
+  // Reason
+  reason      String
+  notes       String?
+  
+  // Approval
+  status      AdjustmentStatus @default(PENDING)
+  approvedBy  String?
+  approvedAt  DateTime?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  items       StockAdjustmentItem[]
+  
+  @@index([outletId])
+  @@index([status])
+  @@map("stock_adjustments")
+}
+
+enum AdjustmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model StockAdjustmentItem {
+  id            String          @id @default(uuid())
+  adjustmentId  String
+  adjustment    StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+  
+  productId     String
+  quantity      Float
+  type          StockMovementType // ADJUSTMENT_IN or ADJUSTMENT_OUT
+  notes         String?
+  
+  @@index([adjustmentId])
+  @@map("stock_adjustment_items")
+}
+
+// ============================================================================
+// AUDIT LOG
+// ============================================================================
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  // Action
+  action      String   // create, update, delete, login, etc
+  resource    String   // product, transaction, user, etc
+  resourceId  String?
+  
+  // Details
+  changes     Json?    // Before/after snapshot
+  
+  // Context
+  ipAddress   String?
+  userAgent   String?
+  
+  // Timestamp
+  createdAt   DateTime @default(now())
+  
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
