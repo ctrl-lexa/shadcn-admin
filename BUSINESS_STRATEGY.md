@@ -523,22 +523,76 @@ src/modules/
 
 ---
 
-## 🧭 Alur Operasional Sistem
+
+# 🚀 Platform Multi-Industri — Alur Ekspansi per Vertikal
+
+Diagram ini memperlihatkan **alur operasional** yang sama untuk **banyak industri**, bukan hanya minimarket & koperasi.
+Setiap vertikal bercabang setelah **Outlet Registration** lalu kembali ke **Dashboard Analytics**.
+
+---
 
 ```mermaid
 flowchart TD
     A[Superadmin / Developer] --> B[Tenant Creation]
     B --> C[Outlet Registration]
-    C --> D1[Minimarket POS]
-    C --> D2[Koperasi Module]
-    D1 --> E1[Transaksi Harian]
-    D2 --> E2[Pinjaman & Simpanan]
-    E1 --> F1[Inventory Update]
-    E2 --> F2[Laporan Keuangan]
-    F1 --> G[Dashboard Analytics]
-    F2 --> G
-    G --> H[Bos Melihat KPI & Omzet]
+
+    %% Branch by industry (7 examples)
+    C --> R1[Retail POS]
+    C --> F1[F&B POS]
+    C --> B1[Beauty & Wellness]
+    C --> S1[Services / Jasa]
+    C --> K1[Koperasi Simpan Pinjam]
+    C --> E1[Education]
+    C --> H1[Healthcare / Pharmacy]
+
+    %% RETAIL
+    R1 --> R2[Transaksi Harian]
+    R2 --> R3[Inventory Update]
+    R3 --> Z[Dashboard Analytics]
+
+    %% F&B
+    F1 --> F2[Table/Kitchen Order]
+    F2 --> F3[KDS & Printer Routing]
+    F3 --> Z
+
+    %% BEAUTY
+    B1 --> B2[Appointment & Booking]
+    B2 --> B3[Komisi & Product Usage]
+    B3 --> Z
+
+    %% SERVICES
+    S1 --> S2[Work Order & Scheduling]
+    S2 --> S3[Invoicing & Payment]
+    S3 --> Z
+
+    %% KOPERASI
+    K1 --> K2[Pinjaman & Simpanan]
+    K2 --> K3[Penagihan & Angsuran]
+    K3 --> Z
+
+    %% EDUCATION
+    E1 --> E2[Course & Billing]
+    E2 --> E3[Absensi & Progress]
+    E3 --> Z
+
+    %% HEALTHCARE
+    H1 --> H2[Resep / Penjualan Obat]
+    H2 --> H3[Billing & Inventory]
+    H3 --> Z
+
+    %% Final
+    Z --> Y[Bos Melihat KPI & Omzet]
 ```
+
+> Cabang industri bisa ditambah (Automotive, Hospitality, Agriculture) dengan pola yang sama.
+
+---
+
+## Ringkasannya
+1. **Superadmin** membuat tenant → **Outlet** didaftarkan.  
+2. Outlet memilih **paket industri** (Retail, F&B, Beauty, Services, Koperasi, Education, Healthcare, dll).  
+3. Vertikal menjalankan **flow operasional spesifik**.  
+4. Semua data kembali ke **Dashboard Analytics** yang sama sehingga manajemen bisa melihat KPI lintas-outlet & lintas-industri.
 
 ---
 
