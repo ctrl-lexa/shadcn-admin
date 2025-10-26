@@ -457,97 +457,47 @@
 
 **Siap gas poll?** 🔥
 
+# 🚀 Platform Bisnis Multi-Industri (Versi MVP)
+
+## 🎯 Visi
+Membangun **platform terpadu** untuk berbagai sektor usaha — dimulai dari:
+- 🏪 Minimarket (Retail POS)
+- 🏦 Koperasi Simpan Pinjam (KSP)
+
+Platform ini berbasis **multi-tenant** (setiap UMKM = tenant sendiri)
+dan dapat diperluas ke industri lain seperti F&B, Beauty, Jasa, Pendidikan, dan Kesehatan.
+
+---
+
+## 🧩 Arsitektur Sistem (Ringkas)
+
+```mermaid
 flowchart TD
     A[Platform Core Engine] --> B1[Auth & RBAC]
     A --> B2[Multi-Tenant Manager]
     A --> B3[Billing & Subscription]
     A --> B4[Reports & Analytics]
     A --> B5[Audit Trail]
-    
+
     subgraph Core Modules
-      B1 --> C1[JWT, OAuth2, Roles]
-      B2 --> C2[Tenant, Outlet, Supplier]
-      B3 --> C3[Midtrans/Xendit Integration]
+      B1 --> C1[Authentication, Role Access]
+      B2 --> C2[Tenant & Outlet Management]
+      B3 --> C3[Payment Gateway Integration]
       B4 --> C4[Realtime Dashboard]
-      B5 --> C5[User Activity Logging]
+      B5 --> C5[User Activity Logs]
     end
 
-    %% Vertical Layer
     subgraph Industry Verticals
-      D1[F&B Module] --> D1a[POS Table, Menu, KDS, Printer Routing]
-      D2[Retail Module] --> D2a[POS Barcode, Inventory, Supplier Portal]
-      D3[Beauty & Wellness] --> D3a[Appointment, Commission, Service Tracking]
-      D4[Services Module] --> D4a[Task Order, Scheduling, Invoicing]
-      D5[Koperasi Module] --> D5a[Loan, Saving, SHU, OJK Report]
-      D6[Education Module] --> D6a[Course, Payment, Attendance]
-      D7[Healthcare Module] --> D7a[Patient Record, Prescription, Billing]
+      D1[F&B] --> D1a[POS Table, KDS, Menu]
+      D2[Retail] --> D2a[POS, Inventory, Supplier Portal]
+      D3[Beauty] --> D3a[Booking, Commission, Product Usage]
+      D4[Services] --> D4a[Task Order, Scheduling, Invoice]
+      D5[Koperasi] --> D5a[Loan, Saving, SHU, OJK Report]
     end
 
-    %% Shared Services
-    subgraph Shared Services
-      E1[CRM & Notifications]
-      E2[Supplier System]
-      E3[Inventory Engine]
-      E4[Payment Gateway Adapter]
-      E5[File Storage & Media]
-    end
-
-    %% Supplier Flow
-    E2 --> D2
-    E2 --> D1
-    E2 --> D3
-    E2 --> D5
-
-    %% Tenant & Outlet Hierarchy
-    B2 --> F1[Tenant: UMKM/Business]
-    F1 --> F2[Outlet 1]
-    F1 --> F3[Outlet 2]
-    F1 --> F4[Outlet 3]
-
-    %% User Roles
-    subgraph Roles
-      R1[Developer]
-      R2[Superadmin]
-      R3[Client Owner]
-      R4[Admin]
-      R5[Manager]
-      R6[Cashier/Staff]
-      R7[Supplier User]
-      R8[Customer/Member]
-    end
-
-    R1 --> A
-    R2 --> A
-    R3 --> F1
-    R4 --> F1
-    R5 --> F2
-    R6 --> F2
-    R7 --> E2
-    R8 --> D1
-    R8 --> D5
-
-    %% Business Flow
-    F2 --> G1[Transaction (POS/Loan)]
-    G1 --> G2[Inventory Update]
-    G1 --> G3[Ledger Update]
-    G3 --> G4[Report & Analytics]
-    G1 --> G5[Supplier Reorder]
-
-    %% Expansion Loop
-    D1 --> H[Feature Flags / Entitlements]
+    D1 --> H[Feature Flags & Entitlement]
     D2 --> H
     D3 --> H
     D4 --> H
     D5 --> H
-    D6 --> H
-    D7 --> H
-
-    H --> I[Pricing Plan Engine]
-    I --> J[Starter / Business / Pro / Enterprise]
-
-    %% Outcome
-    G4 --> K[Superadmin Dashboard]
-    G4 --> L[Owner Insight]
-    G4 --> M[Operational KPI]
-    L --> N[Business Scaling & Expansion]
-    N --> A
+    H --> I[Pricing Plan: Starter - Enterprise]
