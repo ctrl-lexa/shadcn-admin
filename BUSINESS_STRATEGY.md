@@ -469,35 +469,135 @@ dan dapat diperluas ke industri lain seperti F&B, Beauty, Jasa, Pendidikan, dan 
 
 ---
 
-## 🧩 Arsitektur Sistem (Ringkas)
+# 🚀 Platform Bisnis Multi-Industri (Blueprint)
+
+## 🎯 Visi Utama
+Membangun **platform terpadu** yang dapat digunakan oleh berbagai sektor usaha (multi-vertical SaaS).  
+Fokus awal: **Minimarket (Retail POS)** dan **Koperasi Simpan Pinjam (KSP)**  
+Tujuan jangka panjang: sistem dapat diperluas ke sektor **F&B, Beauty, Services, Education, Healthcare**, dan lainnya.
+
+---
+
+## 🧩 Arsitektur Sistem (Gambaran Umum)
+
+```
++-------------------------------------------------------+
+|                   PLATFORM CORE ENGINE                |
+|-------------------------------------------------------|
+| Auth & RBAC | Tenancy | Billing | Reports | AuditLog |
++-------------------------------------------------------+
+        |           |           |           |
+        v           v           v           v
++-----------------+  +----------------+  +----------------+
+|  POS / Retail   |  | Koperasi (KSP) |  |   F&B / Others |
+|  Transaksi, Stok|  | Pinjaman, SHU   |  | Table, KDS     |
++-----------------+  +----------------+  +----------------+
+        |                         |
+        +-----------+-------------+
+                    |
+              Supplier Portal
+                    |
+              Supply Chain Engine
+                    |
+              Analytics Dashboard
+```
+
+---
+
+## ⚙️ Modul Utama Backend (NestJS Modular Monolith)
+
+```
+src/modules/
+├── auth/          → Authentication & JWT
+├── tenancy/       → Multi-tenant management
+├── rbac/          → Role-Based Access Control
+├── billing/       → Subscription & payments
+├── pos/           → Retail POS
+├── inventory/     → Stock management
+├── supplier/      → Supplier portal & procurement
+├── koperasi/      → Loan & savings (KSP)
+├── accounting/    → General ledger & reports
+├── reports/       → Analytics dashboards
+└── audit/         → Logs & activity tracking
+```
+
+---
+
+## 🧭 Alur Operasional Sistem
 
 ```mermaid
 flowchart TD
-    A[Platform Core Engine] --> B1[Auth & RBAC]
-    A --> B2[Multi-Tenant Manager]
-    A --> B3[Billing & Subscription]
-    A --> B4[Reports & Analytics]
-    A --> B5[Audit Trail]
+    A[Superadmin / Developer] --> B[Tenant Creation]
+    B --> C[Outlet Registration]
+    C --> D1[Minimarket POS]
+    C --> D2[Koperasi Module]
+    D1 --> E1[Transaksi Harian]
+    D2 --> E2[Pinjaman & Simpanan]
+    E1 --> F1[Inventory Update]
+    E2 --> F2[Laporan Keuangan]
+    F1 --> G[Dashboard Analytics]
+    F2 --> G
+    G --> H[Bos Melihat KPI & Omzet]
+```
 
-    subgraph Core Modules
-      B1 --> C1[Authentication, Role Access]
-      B2 --> C2[Tenant & Outlet Management]
-      B3 --> C3[Payment Gateway Integration]
-      B4 --> C4[Realtime Dashboard]
-      B5 --> C5[User Activity Logs]
-    end
+---
 
-    subgraph Industry Verticals
-      D1[F&B] --> D1a[POS Table, KDS, Menu]
-      D2[Retail] --> D2a[POS, Inventory, Supplier Portal]
-      D3[Beauty] --> D3a[Booking, Commission, Product Usage]
-      D4[Services] --> D4a[Task Order, Scheduling, Invoice]
-      D5[Koperasi] --> D5a[Loan, Saving, SHU, OJK Report]
-    end
+## 🧮 Struktur Peran dan Hak Akses (Role Hierarchy)
 
-    D1 --> H[Feature Flags & Entitlement]
-    D2 --> H
-    D3 --> H
-    D4 --> H
-    D5 --> H
-    H --> I[Pricing Plan: Starter - Enterprise]
+| Level | Role | Keterangan |
+|--------|------|------------|
+| Platform | Developer | Kelola sistem utama dan tenant |
+| Platform | Superadmin | Pantau semua tenant & billing |
+| Tenant | Owner | Pemilik UMKM / Koperasi |
+| Tenant | Admin | Kelola outlet dan anggota |
+| Tenant | Manager | Pantau transaksi outlet |
+| Tenant | Cashier / Staff | Melakukan penjualan |
+| External | Supplier | Akses portal supply chain |
+| Customer | Member | Anggota koperasi / pelanggan retail |
+
+---
+
+## 🧱 Industri & Modul Vertikal
+
+| Industri | Modul & Fitur Utama | Contoh Implementasi |
+|-----------|----------------------|----------------------|
+| 🏪 Retail | POS, Supplier Portal, Inventory | Minimarket / Toko UMKM |
+| ☕ F&B | Table POS, Kitchen Display, Menu Management | Coffee Shop / Restoran |
+| 💇 Beauty | Booking, Komisi, Produk | Salon, Klinik Kecantikan |
+| 🔧 Services | Task Order, Invoice | Bengkel, Laundry, Jasa Servis |
+| 🏦 Koperasi | Loan, Savings, SHU, OJK Report | KSP Kampus / Desa |
+| 🎓 Education | Kursus, Pembayaran, Siswa | Sekolah, Bimbel, Bootcamp |
+| 💊 Healthcare | Rekam Medis, Resep, Billing | Klinik, Apotek |
+
+---
+
+## 💰 Model Bisnis & Harga
+
+| Paket | Harga (per Outlet/Bulan) | Fitur |
+|--------|--------------------------|--------|
+| Starter | Rp129.000 | POS Dasar, Laporan Harian |
+| Business | Rp2 99.000 | POS + Inventory + Supplier Portal |
+| Pro | Rp599.000 | Multi-outlet, Offline POS, Analytics |
+| Enterprise | Custom | API, Private Server, SLA |
+| Add-on | Mulai Rp99.000 | Koperasi, WhatsApp, Marketplace |
+
+---
+
+## 📈 Rencana Pengembangan (Roadmap)
+
+| Fase | Target | Waktu |
+|-------|---------|--------|
+| Phase 1 | Retail + Koperasi MVP | 2 Bulan |
+| Phase 2 | F&B Integration | 4 Bulan |
+| Phase 3 | Beauty & Service | 6 Bulan |
+| Phase 4 | Education & Healthcare | 9 Bulan |
+| Phase 5 | ERP Integration & API Marketplace | 12 Bulan |
+
+---
+
+## 🧠 Kesimpulan untuk Manajemen
+> Arsitektur modular ini memungkinkan sistem berkembang ke banyak sektor tanpa harus membuat ulang.  
+> Fokus awal ke Retail dan Koperasi memastikan cashflow cepat, sambil menyiapkan infrastruktur untuk F&B, Beauty, dan sektor lain.
+
+Platform ini = **“Satu Otak untuk Banyak Bisnis”**  
+Sekali bangun core-nya, bisa dipakai selamanya.
