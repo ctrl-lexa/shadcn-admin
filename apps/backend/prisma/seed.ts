@@ -187,6 +187,35 @@ async function main() {
       scope: 'tenant',
       description: 'Delete Roles',
     },
+    // Outlets
+    {
+      code: 'outlets.read.tenant',
+      resource: 'outlets',
+      action: 'read',
+      scope: 'tenant',
+      description: 'View Outlets',
+    },
+    {
+      code: 'outlets.create.tenant',
+      resource: 'outlets',
+      action: 'create',
+      scope: 'tenant',
+      description: 'Create Outlets',
+    },
+    {
+      code: 'outlets.update.tenant',
+      resource: 'outlets',
+      action: 'update',
+      scope: 'tenant',
+      description: 'Update Outlets',
+    },
+    {
+      code: 'outlets.delete.tenant',
+      resource: 'outlets',
+      action: 'delete',
+      scope: 'tenant',
+      description: 'Delete Outlets',
+    },
     // Products
     {
       code: 'products.read.outlet',
