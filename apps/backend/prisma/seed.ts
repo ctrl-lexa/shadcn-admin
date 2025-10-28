@@ -261,6 +261,13 @@ async function main() {
       description: 'Create Transactions',
     },
     {
+      code: 'transactions.refund.outlet',
+      resource: 'transactions',
+      action: 'refund',
+      scope: 'outlet',
+      description: 'Refund Transactions',
+    },
+    {
       code: 'transactions.void.outlet',
       resource: 'transactions',
       action: 'void',
