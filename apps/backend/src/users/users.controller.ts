@@ -1,4 +1,11 @@
 import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+} from '@nestjs/swagger';
 import { TenantId } from '../common/decorators/tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -11,6 +18,8 @@ interface UserPayload {
   outletId?: string;
 }
 
+@ApiTags('users')
+@ApiBearerAuth('JWT-auth')
 @Controller('users')
 export class UsersController {
   constructor(private tenantPrisma: TenantPrismaService) {}
@@ -21,6 +30,31 @@ export class UsersController {
    */
   @RequirePermissions('users.read.outlet')
   @Get()
+  @ApiOperation({ summary: 'Get all users in tenant' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of users in tenant',
+    schema: {
+      example: {
+        tenantId: 'uuid',
+        currentUser: 'admin',
+        count: 3,
+        users: [
+          {
+            id: 'uuid',
+            username: 'john_doe',
+            email: 'john@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            isActive: true,
+            role: { id: 'role-uuid', name: 'ADMIN' },
+            outlet: { id: 'outlet-uuid', name: 'Main Store' },
+          },
+        ],
+      },
+    },
+  })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
   async findAll(
     @TenantId() tenantId: string,
     @CurrentUser() user: UserPayload,
@@ -64,6 +98,10 @@ export class UsersController {
    */
   @RequirePermissions('users.read.outlet')
   @Get(':id')
+  @ApiOperation({ summary: 'Get user by ID' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({ status: 200, description: 'User found' })
+  @ApiResponse({ status: 404, description: 'User not found in tenant' })
   async findOne(@TenantId() tenantId: string, @Param('id') id: string) {
     const db = this.tenantPrisma.forTenant(tenantId);
 
