@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { TestModule } from './test/test.module';
 import { UsersModule } from './users/users.module';
 import { OutletsModule } from './outlets/outlets.module';
+import { ProductsModule } from './products/products.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
@@ -20,6 +21,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     TestModule,
     UsersModule,
     OutletsModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [
