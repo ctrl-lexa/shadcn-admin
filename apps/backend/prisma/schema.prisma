@@ -387,13 +387,47 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+// ============================================================================
+// FEATURE FLAGS SYSTEM
+// ============================================================================
+
+model FeatureFlag {
+  id                String   @id @default(uuid())
+  key               String   @unique // e.g., "offline_pos", "kds", "multi_outlet"
+  name              String   // Display name
+  description       String?  // What this feature does
+  category          String?  // "pos", "inventory", "koperasi", "reporting"
+  
+  // Availability
+  enabled           Boolean  @default(true) // Global feature toggle
+  plans             String[] // Plans that include this feature ["starter", "business", "pro"]
+  
+  // Rollout
+  rolloutPercentage Int      @default(100) // Gradual rollout (0-100%)
+  rolloutTenants    String[] // Specific tenant IDs for beta testing
+  
+  // Metadata
+  metadata          Json?    // Additional config
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([key])
+  @@index([enabled])
+  @@map("feature_flags")
+}
+
 model TenantEntitlement {
   id          String   @id @default(uuid())
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
-  feature     String   // module code or feature flag
+  featureKey  String   // References FeatureFlag.key
   enabled     Boolean  @default(true)
+  
+  // Override feature config per tenant
+  config      Json?    // Feature-specific configuration
   
   // Usage limits (if applicable)
   limitValue  Int?
@@ -405,8 +439,9 @@ model TenantEntitlement {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
-  @@unique([tenantId, feature])
+  @@unique([tenantId, featureKey])
   @@index([tenantId])
+  @@index([featureKey])
   @@map("tenant_entitlements")
 }
 

@@ -92,18 +92,12 @@ export class ProductsService {
     });
 
     // Audit log
-    await this.auditLogs.logCreate(
-      tenantId,
-      userId,
-      'products',
-      product.id,
-      {
-        name: product.name,
-        sku: product.sku,
-        sellingPrice: product.sellingPrice,
-        currentStock: product.currentStock,
-      },
-    );
+    await this.auditLogs.logCreate(tenantId, userId, 'products', product.id, {
+      name: product.name,
+      sku: product.sku,
+      sellingPrice: product.sellingPrice,
+      currentStock: product.currentStock,
+    });
 
     return {
       message: 'Product created successfully',
@@ -207,7 +201,12 @@ export class ProductsService {
     return { product };
   }
 
-  async update(tenantId: string, userId: string, id: string, dto: UpdateProductDto) {
+  async update(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: UpdateProductDto,
+  ) {
     // Check product exists and belongs to tenant
     const existing = await this.prisma.product.findFirst({
       where: {
@@ -327,16 +326,10 @@ export class ProductsService {
     });
 
     // Audit log
-    await this.auditLogs.logDelete(
-      tenantId,
-      userId,
-      'products',
-      id,
-      {
-        name: product.name,
-        sku: product.sku,
-      },
-    );
+    await this.auditLogs.logDelete(tenantId, userId, 'products', id, {
+      name: product.name,
+      sku: product.sku,
+    });
 
     return {
       message: 'Product deleted successfully',

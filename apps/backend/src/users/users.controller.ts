@@ -54,7 +54,10 @@ export class UsersController {
       },
     },
   })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   async findAll(
     @TenantId() tenantId: string,
     @CurrentUser() user: UserPayload,

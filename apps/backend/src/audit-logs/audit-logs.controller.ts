@@ -36,7 +36,10 @@ export class AuditLogsController {
   @ApiQuery({ name: 'endDate', required: false })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiResponse({ status: 200, description: 'Audit logs retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Audit logs retrieved successfully',
+  })
   findAll(
     @TenantId() tenantId: string,
     @Query('userId') userId?: string,
@@ -84,7 +87,10 @@ export class AuditLogsController {
   @Get('resource/:resource/:resourceId')
   @RequirePermissions('system.audit.read.tenant')
   @ApiOperation({ summary: 'Get audit logs for a specific resource' })
-  @ApiResponse({ status: 200, description: 'Resource history retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Resource history retrieved successfully',
+  })
   findByResource(
     @TenantId() tenantId: string,
     @Param('resource') resource: string,

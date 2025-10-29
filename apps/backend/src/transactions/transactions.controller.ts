@@ -31,7 +31,10 @@ export class TransactionsController {
   @RequirePermissions('transactions.create.outlet')
   @ApiOperation({ summary: 'Create a new transaction (POS sale)' })
   @ApiResponse({ status: 201, description: 'Transaction created successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid data or insufficient stock' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid data or insufficient stock',
+  })
   create(
     @TenantId() tenantId: string,
     @Request() req: any,
@@ -148,6 +151,10 @@ export class TransactionsController {
     @Request() req: any,
     @Body() createRefundDto: CreateRefundDto,
   ) {
-    return this.transactionsService.createRefund(tenantId, req.user.userId, createRefundDto);
+    return this.transactionsService.createRefund(
+      tenantId,
+      req.user.userId,
+      createRefundDto,
+    );
   }
 }

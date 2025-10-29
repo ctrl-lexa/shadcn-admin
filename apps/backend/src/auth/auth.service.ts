@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,10 +22,7 @@ export class AuthService {
     // Check if username or email already exists
     const existingUser = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { username: dto.username },
-          { email: dto.email },
-        ],
+        OR: [{ username: dto.username }, { email: dto.email }],
       },
     });
 
@@ -62,10 +63,7 @@ export class AuthService {
     // Find user by username or email
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { username: dto.usernameOrEmail },
-          { email: dto.usernameOrEmail },
-        ],
+        OR: [{ username: dto.usernameOrEmail }, { email: dto.usernameOrEmail }],
       },
       include: {
         role: {
@@ -125,8 +123,11 @@ export class AuthService {
     }
 
     // Verify password
-    const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
-    
+    const isPasswordValid = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
+
     if (!isPasswordValid) {
       // Log failed login attempt
       await this.auditLogs.log({
@@ -188,7 +189,12 @@ export class AuthService {
     };
   }
 
-  async refreshToken(userId: string, refreshToken: string, ipAddress?: string, userAgent?: string) {
+  async refreshToken(
+    userId: string,
+    refreshToken: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
     // Verify refresh token exists and not revoked
     const tokenRecord = await this.prisma.refreshToken.findUnique({
       where: { token: refreshToken },
@@ -275,7 +281,12 @@ export class AuthService {
     };
   }
 
-  async logout(userId: string, refreshToken: string, ipAddress?: string, userAgent?: string) {
+  async logout(
+    userId: string,
+    refreshToken: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
     // Get user info for audit log
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -336,8 +347,11 @@ export class AuthService {
     }
 
     // Verify current password
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
-    
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.passwordHash,
+    );
+
     if (!isPasswordValid) {
       // Log failed password change
       await this.auditLogs.log({
@@ -397,7 +411,7 @@ export class AuthService {
     // Generate access token
     const accessToken = this.jwtService.sign(payload);
 
-    // Generate refresh token  
+    // Generate refresh token
     const refreshToken = this.jwtService.sign(payload);
 
     // Store refresh token in database

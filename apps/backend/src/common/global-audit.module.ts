@@ -5,7 +5,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 /**
  * Example of how to enable global audit interceptor
- * 
+ *
  * To use:
  * 1. Import this module in AppModule
  * 2. All write operations (POST/PUT/PATCH/DELETE) will be auto-audited

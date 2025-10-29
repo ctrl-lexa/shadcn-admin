@@ -35,7 +35,10 @@ export class ProductsController {
   @RequirePermissions('products.create.outlet')
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid outlet or validation error' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid outlet or validation error',
+  })
   @ApiResponse({ status: 409, description: 'SKU or barcode already exists' })
   create(
     @TenantId() tenantId: string,
@@ -135,7 +138,12 @@ export class ProductsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProductDto: UpdateProductDto,
   ) {
-    return this.productsService.update(tenantId, req.user.userId, id, updateProductDto);
+    return this.productsService.update(
+      tenantId,
+      req.user.userId,
+      id,
+      updateProductDto,
+    );
   }
 
   @Delete(':id')
@@ -185,7 +193,10 @@ export class ProductsController {
   })
   @ApiResponse({ status: 200, description: 'Stock adjusted successfully' })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiResponse({ status: 400, description: 'Insufficient stock or tracking disabled' })
+  @ApiResponse({
+    status: 400,
+    description: 'Insufficient stock or tracking disabled',
+  })
   adjustStock(
     @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,

@@ -1,4 +1,11 @@
-import { Controller, Post, Body, UseGuards, Get, Request } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  Request,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -68,10 +75,19 @@ export class AuthController {
   @ApiBody({ type: RefreshTokenDto })
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
-  async refresh(@CurrentUser() user: any, @Body() dto: RefreshTokenDto, @Request() req: any) {
+  async refresh(
+    @CurrentUser() user: any,
+    @Body() dto: RefreshTokenDto,
+    @Request() req: any,
+  ) {
     const ipAddress = req.ip || req.connection?.remoteAddress;
     const userAgent = req.headers['user-agent'];
-    return this.authService.refreshToken(user.userId, dto.refreshToken, ipAddress, userAgent);
+    return this.authService.refreshToken(
+      user.userId,
+      dto.refreshToken,
+      ipAddress,
+      userAgent,
+    );
   }
 
   @ApiBearerAuth('JWT-auth')
@@ -79,10 +95,19 @@ export class AuthController {
   @Post('logout')
   @ApiOperation({ summary: 'Logout user' })
   @ApiResponse({ status: 200, description: 'User logged out successfully' })
-  async logout(@CurrentUser() user: any, @Body() dto: RefreshTokenDto, @Request() req: any) {
+  async logout(
+    @CurrentUser() user: any,
+    @Body() dto: RefreshTokenDto,
+    @Request() req: any,
+  ) {
     const ipAddress = req.ip || req.connection?.remoteAddress;
     const userAgent = req.headers['user-agent'];
-    return this.authService.logout(user.userId, dto.refreshToken, ipAddress, userAgent);
+    return this.authService.logout(
+      user.userId,
+      dto.refreshToken,
+      ipAddress,
+      userAgent,
+    );
   }
 
   @ApiBearerAuth('JWT-auth')
@@ -117,7 +142,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Password changed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid current password' })
   async changePassword(
-    @CurrentUser() user: any, 
+    @CurrentUser() user: any,
     @Body() dto: ChangePasswordDto,
     @Request() req: any,
   ) {

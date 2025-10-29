@@ -100,7 +100,12 @@ export class OutletsService {
     return { outlet };
   }
 
-  async update(tenantId: string, userId: string, id: string, dto: UpdateOutletDto) {
+  async update(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: UpdateOutletDto,
+  ) {
     const db = this.tenantPrisma.forTenant(tenantId);
 
     // Check if outlet exists

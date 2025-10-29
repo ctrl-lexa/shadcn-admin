@@ -12,6 +12,7 @@ import { OutletsModule } from './outlets/outlets.module';
 import { ProductsModule } from './products/products.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
@@ -28,6 +29,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     ProductsModule,
     TransactionsModule,
     AuditLogsModule,
+    FeatureFlagsModule,
   ],
   controllers: [AppController],
   providers: [

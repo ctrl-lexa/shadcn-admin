@@ -5,7 +5,7 @@ export const NO_AUDIT_KEY = 'no-audit';
 /**
  * Decorator to disable audit logging for specific endpoints
  * Use this when audit is already handled manually or not needed
- * 
+ *
  * @example
  * ```typescript
  * @NoAudit()

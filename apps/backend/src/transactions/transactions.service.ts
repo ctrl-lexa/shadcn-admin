@@ -98,7 +98,7 @@ export class TransactionsService {
       const unitPrice = product.sellingPrice;
       const itemDiscount = item.discount || 0;
       const lineSubtotal = Math.round(unitPrice * item.quantity - itemDiscount);
-      
+
       // Calculate tax
       const itemTax = product.isTaxable
         ? Math.round((lineSubtotal * product.taxRate) / 100)

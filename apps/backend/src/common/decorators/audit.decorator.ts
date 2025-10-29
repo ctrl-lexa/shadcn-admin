@@ -48,11 +48,11 @@ export interface AuditConfig {
 /**
  * Decorator to customize audit logging for specific endpoints
  * Provides granular control over what gets logged
- * 
+ *
  * @example
  * ```typescript
- * @Audit({ 
- *   resource: 'product', 
+ * @Audit({
+ *   resource: 'product',
  *   action: 'CREATE',
  *   excludeFields: ['password', 'secret']
  * })

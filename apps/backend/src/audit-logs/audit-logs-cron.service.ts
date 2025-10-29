@@ -35,10 +35,7 @@ export class AuditLogsCronService {
           // For now, use default 90 days
           const retentionDays = this.DEFAULT_RETENTION_DAYS;
 
-          const result = await this.auditLogs.cleanup(
-            tenant.id,
-            retentionDays,
-          );
+          const result = await this.auditLogs.cleanup(tenant.id, retentionDays);
 
           if (result.deleted > 0) {
             this.logger.log(
@@ -68,9 +65,7 @@ export class AuditLogsCronService {
    * Can be called directly for immediate cleanup
    */
   async manualCleanup(tenantId: string, retentionDays?: number) {
-    this.logger.log(
-      `Manual cleanup triggered for tenant ${tenantId}...`,
-    );
+    this.logger.log(`Manual cleanup triggered for tenant ${tenantId}...`);
 
     const days = retentionDays || this.DEFAULT_RETENTION_DAYS;
     const result = await this.auditLogs.cleanup(tenantId, days);

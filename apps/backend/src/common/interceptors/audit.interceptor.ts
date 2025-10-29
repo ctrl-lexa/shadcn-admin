@@ -42,7 +42,7 @@ export class AuditInterceptor implements NestInterceptor {
 
     const request = context.switchToHttp().getRequest();
     const response = context.switchToHttp().getResponse();
-    
+
     const { method, url, user, body, ip, headers } = request;
     const userAgent = headers['user-agent'];
     const tenantId = user?.tenantId;
@@ -62,7 +62,7 @@ export class AuditInterceptor implements NestInterceptor {
     };
 
     const action = auditConfig?.action || actionMap[method];
-    
+
     // Skip if not a write operation
     if (!action) {
       return next.handle();
@@ -70,7 +70,8 @@ export class AuditInterceptor implements NestInterceptor {
 
     // Extract resource from URL or config
     const resourceMatch = url.match(/\/api\/v1\/([^\/\?]+)/);
-    const resource = auditConfig?.resource || (resourceMatch ? resourceMatch[1] : 'unknown');
+    const resource =
+      auditConfig?.resource || (resourceMatch ? resourceMatch[1] : 'unknown');
 
     // Skip auth endpoints (already manually logged)
     if (resource === 'auth' && !auditConfig) {
@@ -104,9 +105,9 @@ export class AuditInterceptor implements NestInterceptor {
         next: (responseData) => {
           // Log successful operation
           const duration = Date.now() - startTime;
-          
+
           // Try to extract resource ID from response
-          const resourceId = 
+          const resourceId =
             responseData?.id ||
             responseData?.data?.id ||
             responseData?.outlet?.id ||
@@ -133,7 +134,9 @@ export class AuditInterceptor implements NestInterceptor {
               statusCode: response.statusCode,
               duration,
               ...(auditConfig?.metadata || {}),
-              ...(shouldLogResponse && responseData ? { response: responseData } : {}),
+              ...(shouldLogResponse && responseData
+                ? { response: responseData }
+                : {}),
             },
           });
         },

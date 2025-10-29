@@ -35,7 +35,11 @@ export class OutletsController {
   @ApiResponse({ status: 201, description: 'Outlet created successfully' })
   @ApiResponse({ status: 409, description: 'Outlet code already exists' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
-  create(@TenantId() tenantId: string, @Body() dto: CreateOutletDto, @Request() req: any) {
+  create(
+    @TenantId() tenantId: string,
+    @Body() dto: CreateOutletDto,
+    @Request() req: any,
+  ) {
     return this.outletsService.create(tenantId, req.user.userId, dto);
   }
 
@@ -111,7 +115,11 @@ export class OutletsController {
     status: 400,
     description: 'Cannot delete outlet with existing data',
   })
-  remove(@TenantId() tenantId: string, @Param('id') id: string, @Request() req: any) {
+  remove(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Request() req: any,
+  ) {
     return this.outletsService.remove(tenantId, req.user.userId, id);
   }
 

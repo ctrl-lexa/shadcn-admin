@@ -158,11 +158,7 @@ export class AuditLogsService {
   /**
    * Find audit logs for a specific resource
    */
-  async findByResource(
-    tenantId: string,
-    resource: string,
-    resourceId: string,
-  ) {
+  async findByResource(tenantId: string, resource: string, resourceId: string) {
     return this.prisma.auditLog.findMany({
       where: {
         tenantId,
