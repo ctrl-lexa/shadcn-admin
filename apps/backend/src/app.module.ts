@@ -11,6 +11,7 @@ import { TestModule } from './test/test.module';
 import { UsersModule } from './users/users.module';
 import { OutletsModule } from './outlets/outlets.module';
 import { ProductsModule } from './products/products.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
@@ -35,6 +36,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     UsersModule,
     OutletsModule,
     ProductsModule,
+    InventoryModule,
     TransactionsModule,
     AuditLogsModule,
     FeatureFlagsModule,
