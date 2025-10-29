@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -14,12 +15,17 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { BillingModule } from './billing/billing.module';
+import { FileUploadModule } from './file-upload/file-upload.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
     ScheduleModule.forRoot(),
     PrismaModule,
     CommonModule,
@@ -32,6 +38,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     AuditLogsModule,
     FeatureFlagsModule,
     BillingModule,
+    FileUploadModule,
   ],
   controllers: [AppController],
   providers: [
