@@ -145,8 +145,9 @@ export class TransactionsController {
   @ApiResponse({ status: 404, description: 'Transaction not found' })
   createRefund(
     @TenantId() tenantId: string,
+    @Request() req: any,
     @Body() createRefundDto: CreateRefundDto,
   ) {
-    return this.transactionsService.createRefund(tenantId, createRefundDto);
+    return this.transactionsService.createRefund(tenantId, req.user.userId, createRefundDto);
   }
 }

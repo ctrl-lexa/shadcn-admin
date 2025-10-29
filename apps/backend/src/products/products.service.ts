@@ -7,12 +7,21 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditLogs: AuditLogsService,
+  ) {}
 
-  async create(tenantId: string, outletId: string, dto: CreateProductDto) {
+  async create(
+    tenantId: string,
+    userId: string,
+    outletId: string,
+    dto: CreateProductDto,
+  ) {
     // Verify outlet belongs to tenant
     const outlet = await this.prisma.outlet.findFirst({
       where: { id: dto.outletId, tenantId },
@@ -81,6 +90,20 @@ export class ProductsService {
         },
       },
     });
+
+    // Audit log
+    await this.auditLogs.logCreate(
+      tenantId,
+      userId,
+      'products',
+      product.id,
+      {
+        name: product.name,
+        sku: product.sku,
+        sellingPrice: product.sellingPrice,
+        currentStock: product.currentStock,
+      },
+    );
 
     return {
       message: 'Product created successfully',
@@ -184,7 +207,7 @@ export class ProductsService {
     return { product };
   }
 
-  async update(tenantId: string, id: string, dto: UpdateProductDto) {
+  async update(tenantId: string, userId: string, id: string, dto: UpdateProductDto) {
     // Check product exists and belongs to tenant
     const existing = await this.prisma.product.findFirst({
       where: {
@@ -246,13 +269,33 @@ export class ProductsService {
       },
     });
 
+    // Audit log
+    await this.auditLogs.logUpdate(
+      tenantId,
+      userId,
+      'products',
+      id,
+      {
+        name: existing.name,
+        sku: existing.sku,
+        sellingPrice: existing.sellingPrice,
+        currentStock: existing.currentStock,
+      },
+      {
+        name: product.name,
+        sku: product.sku,
+        sellingPrice: product.sellingPrice,
+        currentStock: product.currentStock,
+      },
+    );
+
     return {
       message: 'Product updated successfully',
       product,
     };
   }
 
-  async remove(tenantId: string, id: string) {
+  async remove(tenantId: string, userId: string, id: string) {
     // Check product exists
     const product = await this.prisma.product.findFirst({
       where: {
@@ -282,6 +325,18 @@ export class ProductsService {
     await this.prisma.product.delete({
       where: { id },
     });
+
+    // Audit log
+    await this.auditLogs.logDelete(
+      tenantId,
+      userId,
+      'products',
+      id,
+      {
+        name: product.name,
+        sku: product.sku,
+      },
+    );
 
     return {
       message: 'Product deleted successfully',

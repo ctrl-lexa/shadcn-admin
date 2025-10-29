@@ -7,10 +7,14 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { CreateRefundDto } from './dto/create-refund.dto';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditLogs: AuditLogsService,
+  ) {}
 
   async create(tenantId: string, userId: string, dto: CreateTransactionDto) {
     // Verify outlet belongs to tenant
@@ -216,6 +220,20 @@ export class TransactionsService {
       return newTransaction;
     });
 
+    // Audit log
+    await this.auditLogs.logCreate(
+      tenantId,
+      userId,
+      'transactions',
+      transaction.id,
+      {
+        transactionNumber: transaction.transactionNumber,
+        total: transaction.total,
+        paymentMethod: transaction.paymentMethod,
+        itemCount: transaction.items.length,
+      },
+    );
+
     return {
       message: 'Transaction completed successfully',
       transaction,
@@ -336,7 +354,7 @@ export class TransactionsService {
     return { transaction };
   }
 
-  async createRefund(tenantId: string, dto: CreateRefundDto) {
+  async createRefund(tenantId: string, userId: string, dto: CreateRefundDto) {
     // Verify transaction exists and belongs to tenant
     const transaction = await this.prisma.transaction.findFirst({
       where: {
@@ -411,6 +429,21 @@ export class TransactionsService {
       });
 
       return newRefund;
+    });
+
+    // Audit log
+    await this.auditLogs.log({
+      tenantId,
+      userId,
+      action: 'REFUND',
+      resource: 'transactions',
+      resourceId: dto.transactionId,
+      newValues: {
+        refundNumber: refund.refundNumber,
+        amount: refund.amount,
+        reason: refund.reason,
+        transactionStatus: newStatus,
+      },
     });
 
     return {

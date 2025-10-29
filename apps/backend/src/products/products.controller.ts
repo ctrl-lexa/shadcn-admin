@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   ParseBoolPipe,
   ParseIntPipe,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -38,10 +39,12 @@ export class ProductsController {
   @ApiResponse({ status: 409, description: 'SKU or barcode already exists' })
   create(
     @TenantId() tenantId: string,
+    @Request() req: any,
     @Body() createProductDto: CreateProductDto,
   ) {
     return this.productsService.create(
       tenantId,
+      req.user.userId,
       createProductDto.outletId,
       createProductDto,
     );
@@ -128,10 +131,11 @@ export class ProductsController {
   @ApiResponse({ status: 409, description: 'SKU or barcode already exists' })
   update(
     @TenantId() tenantId: string,
+    @Request() req: any,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProductDto: UpdateProductDto,
   ) {
-    return this.productsService.update(tenantId, id, updateProductDto);
+    return this.productsService.update(tenantId, req.user.userId, id, updateProductDto);
   }
 
   @Delete(':id')
@@ -143,8 +147,12 @@ export class ProductsController {
     status: 400,
     description: 'Cannot delete product with transactions',
   })
-  remove(@TenantId() tenantId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.productsService.remove(tenantId, id);
+  remove(
+    @TenantId() tenantId: string,
+    @Request() req: any,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.productsService.remove(tenantId, req.user.userId, id);
   }
 
   @Patch(':id/toggle-active')
