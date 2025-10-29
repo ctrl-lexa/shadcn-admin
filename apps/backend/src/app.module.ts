@@ -21,6 +21,7 @@ import { EmailModule } from './email/email.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { ReceiptsModule } from './receipts/receipts.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     BillingModule,
     FileUploadModule,
     EmailModule,
+    ReceiptsModule,
   ],
   controllers: [AppController],
   providers: [
