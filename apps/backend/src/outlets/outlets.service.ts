@@ -5,14 +5,18 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { TenantPrismaService } from '../common/services/tenant-prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { CreateOutletDto } from './dto/create-outlet.dto';
 import { UpdateOutletDto } from './dto/update-outlet.dto';
 
 @Injectable()
 export class OutletsService {
-  constructor(private tenantPrisma: TenantPrismaService) {}
+  constructor(
+    private tenantPrisma: TenantPrismaService,
+    private auditLogs: AuditLogsService,
+  ) {}
 
-  async create(tenantId: string, dto: CreateOutletDto) {
+  async create(tenantId: string, userId: string, dto: CreateOutletDto) {
     const db = this.tenantPrisma.forTenant(tenantId);
 
     // Check if code already exists in tenant
@@ -42,6 +46,14 @@ export class OutletsService {
         taxRate: dto.taxRate || 11.0,
         isActive: dto.isActive !== undefined ? dto.isActive : true,
       },
+    });
+
+    // Log outlet creation
+    await this.auditLogs.logCreate(tenantId, userId, 'outlet', outlet.id, {
+      name: outlet.name,
+      code: outlet.code,
+      type: outlet.type,
+      city: outlet.city,
     });
 
     return {
@@ -88,7 +100,7 @@ export class OutletsService {
     return { outlet };
   }
 
-  async update(tenantId: string, id: string, dto: UpdateOutletDto) {
+  async update(tenantId: string, userId: string, id: string, dto: UpdateOutletDto) {
     const db = this.tenantPrisma.forTenant(tenantId);
 
     // Check if outlet exists
@@ -118,13 +130,33 @@ export class OutletsService {
       data: dto,
     });
 
+    // Log outlet update
+    await this.auditLogs.logUpdate(
+      tenantId,
+      userId,
+      'outlet',
+      id,
+      {
+        name: existing.name,
+        code: existing.code,
+        type: existing.type,
+        isActive: existing.isActive,
+      },
+      {
+        name: outlet.name,
+        code: outlet.code,
+        type: outlet.type,
+        isActive: outlet.isActive,
+      },
+    );
+
     return {
       message: 'Outlet updated successfully',
       outlet,
     };
   }
 
-  async remove(tenantId: string, id: string) {
+  async remove(tenantId: string, userId: string, id: string) {
     const db = this.tenantPrisma.forTenant(tenantId);
 
     // Check if outlet exists
@@ -158,6 +190,13 @@ export class OutletsService {
 
     await db.outlet.delete({
       where: { id },
+    });
+
+    // Log outlet deletion
+    await this.auditLogs.logDelete(tenantId, userId, 'outlet', id, {
+      name: outlet.name,
+      code: outlet.code,
+      type: outlet.type,
     });
 
     return {

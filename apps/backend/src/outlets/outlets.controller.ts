@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   Query,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -34,8 +35,8 @@ export class OutletsController {
   @ApiResponse({ status: 201, description: 'Outlet created successfully' })
   @ApiResponse({ status: 409, description: 'Outlet code already exists' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
-  create(@TenantId() tenantId: string, @Body() dto: CreateOutletDto) {
-    return this.outletsService.create(tenantId, dto);
+  create(@TenantId() tenantId: string, @Body() dto: CreateOutletDto, @Request() req: any) {
+    return this.outletsService.create(tenantId, req.user.userId, dto);
   }
 
   @Get()
@@ -95,8 +96,9 @@ export class OutletsController {
     @TenantId() tenantId: string,
     @Param('id') id: string,
     @Body() dto: UpdateOutletDto,
+    @Request() req: any,
   ) {
-    return this.outletsService.update(tenantId, id, dto);
+    return this.outletsService.update(tenantId, req.user.userId, id, dto);
   }
 
   @Delete(':id')
@@ -109,8 +111,8 @@ export class OutletsController {
     status: 400,
     description: 'Cannot delete outlet with existing data',
   })
-  remove(@TenantId() tenantId: string, @Param('id') id: string) {
-    return this.outletsService.remove(tenantId, id);
+  remove(@TenantId() tenantId: string, @Param('id') id: string, @Request() req: any) {
+    return this.outletsService.remove(tenantId, req.user.userId, id);
   }
 
   @Patch(':id/toggle-active')
