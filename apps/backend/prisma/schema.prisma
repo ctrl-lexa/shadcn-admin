@@ -482,6 +482,10 @@ model Product {
   categoryId  String?
   category    ProductCategory? @relation(fields: [categoryId], references: [id])
   
+  // Supplier
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  
   // Pricing (in cents)
   costPrice   Int      @default(0)
   sellingPrice Int
@@ -496,6 +500,10 @@ model Product {
   isTaxable   Boolean  @default(true)
   taxRate     Float    @default(11.0)
   
+  // Tracking (Feature Flag: batch_tracking)
+  trackBatch  Boolean  @default(false)
+  trackExpiry Boolean  @default(false)
+  
   // Images
   images      String[] // Array of image URLs
   
@@ -508,14 +516,75 @@ model Product {
   deletedAt   DateTime?
   
   // Relations
+  variants         ProductVariant[]
+  pricingTiers     ProductPricingTier[]
   transactionItems TransactionItem[]
   stockMovements   StockMovement[]
+  warehouseStock   WarehouseStock[]
   
   @@unique([outletId, sku])
+  @@index([tenantId])
   @@index([outletId])
   @@index([barcode])
   @@index([categoryId])
+  @@index([supplierId])
   @@map("products")
+}
+
+model ProductVariant {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Variant details
+  name        String   // e.g., "Size M - Red"
+  sku         String   @unique
+  barcode     String?
+  
+  // Attributes
+  attributes  Json     // { "size": "M", "color": "Red" }
+  
+  // Pricing (in cents)
+  costPrice   Int?
+  sellingPrice Int?
+  
+  // Stock
+  currentStock Float   @default(0)
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([productId])
+  @@index([sku])
+  @@map("product_variants")
+}
+
+model ProductPricingTier {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Tier
+  tierName    String   // Wholesale, Member, VIP, etc
+  minQuantity Int      @default(1)
+  maxQuantity Int?
+  
+  // Price (in cents)
+  price       Int
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([productId])
+  @@map("product_pricing_tiers")
 }
 
 model ProductCategory {
@@ -770,6 +839,144 @@ enum StockMovementType {
   EXPIRED        // Write-off
 }
 
+model StockTransfer {
+  id              String   @id @default(uuid())
+  tenantId        String
+  
+  transferNumber  String   @unique
+  
+  // Outlets
+  fromOutletId    String
+  toOutletId      String
+  
+  // Status
+  status          TransferStatus @default(PENDING)
+  
+  // Dates
+  requestedDate   DateTime @default(now())
+  shippedDate     DateTime?
+  receivedDate    DateTime?
+  
+  // Notes
+  notes           String?
+  
+  // Approval
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  items           StockTransferItem[]
+  
+  @@index([tenantId])
+  @@index([fromOutletId])
+  @@index([toOutletId])
+  @@index([status])
+  @@map("stock_transfers")
+}
+
+enum TransferStatus {
+  PENDING
+  APPROVED
+  SHIPPED
+  RECEIVED
+  CANCELLED
+}
+
+model StockTransferItem {
+  id              String        @id @default(uuid())
+  transferId      String
+  transfer        StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  
+  productId       String
+  quantityRequested Float
+  quantityShipped   Float?
+  quantityReceived  Float?
+  
+  notes           String?
+  
+  @@index([transferId])
+  @@map("stock_transfer_items")
+}
+
+model Warehouse {
+  id          String   @id @default(uuid())
+  tenantId    String
+  outletId    String
+  
+  code        String
+  name        String
+  description String?
+  
+  // Location
+  address     String?
+  city        String?
+  province    String?
+  
+  // Type
+  type        WarehouseType @default(MAIN)
+  
+  // Capacity
+  maxCapacity Float?
+  currentCapacity Float @default(0)
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  stock       WarehouseStock[]
+  
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([outletId])
+  @@map("warehouses")
+}
+
+enum WarehouseType {
+  MAIN
+  SECONDARY
+  TRANSIT
+}
+
+model WarehouseStock {
+  id          String    @id @default(uuid())
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Stock
+  quantity    Float     @default(0)
+  reserved    Float     @default(0) // For pending orders
+  available   Float     @default(0) // quantity - reserved
+  
+  // Batch tracking (Feature Flag: batch_tracking)
+  batchNumber String?
+  expiryDate  DateTime?
+  
+  // Location
+  zone        String?   // A, B, C
+  rack        String?   // R1, R2
+  bin         String?   // B01, B02
+  
+  // Timestamps
+  updatedAt   DateTime  @updatedAt
+  
+  @@unique([warehouseId, productId, batchNumber])
+  @@index([warehouseId])
+  @@index([productId])
+  @@index([expiryDate])
+  @@map("warehouse_stock")
+}
+
 model StockAdjustment {
   id          String   @id @default(uuid())
   tenantId    String
@@ -884,4 +1091,267 @@ enum AuditStatus {
   SUCCESS
   FAILED
   PENDING
+}
+
+// ============================================================================
+// SUPPLIER MODULE
+// ============================================================================
+
+model Supplier {
+  id          String   @id @default(uuid())
+  tenantId    String
+  
+  // Basic Info
+  code        String
+  name        String
+  description String?
+  
+  // Contact
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  city          String?
+  province      String?
+  postalCode    String?
+  
+  // Tax
+  taxId       String?  // NPWP
+  
+  // Payment Terms
+  paymentTerms String  @default("NET_30") // NET_7, NET_14, NET_30, COD
+  creditLimit  Int?    // in cents
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  // Rating
+  rating      Float?   // 0-5 stars
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  
+  // Relations
+  products         Product[]
+  purchaseOrders   PurchaseOrder[]
+  supplierPayments SupplierPayment[]
+  
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([isActive])
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id              String   @id @default(uuid())
+  tenantId        String
+  
+  orderNumber     String   @unique
+  
+  // Supplier
+  supplierId      String
+  supplier        Supplier @relation(fields: [supplierId], references: [id])
+  
+  // Delivery
+  outletId        String
+  warehouseId     String?
+  
+  // Dates
+  orderDate       DateTime @default(now())
+  expectedDate    DateTime?
+  receivedDate    DateTime?
+  
+  // Amounts (in cents)
+  subtotal        Int
+  discount        Int      @default(0)
+  tax             Int      @default(0)
+  shippingCost    Int      @default(0)
+  total           Int
+  
+  // Status
+  status          PurchaseOrderStatus @default(DRAFT)
+  
+  // Notes
+  notes           String?
+  
+  // Approval
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  items           PurchaseOrderItem[]
+  receivings      GoodsReceiving[]
+  payments        SupplierPayment[]
+  
+  @@index([tenantId])
+  @@index([supplierId])
+  @@index([outletId])
+  @@index([status])
+  @@map("purchase_orders")
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PARTIAL_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  
+  productId       String
+  
+  // Snapshot
+  productName     String
+  productSku      String
+  
+  // Quantities
+  quantityOrdered Float
+  quantityReceived Float @default(0)
+  
+  // Pricing (in cents)
+  unitPrice       Int
+  discount        Int      @default(0)
+  tax             Int      @default(0)
+  subtotal        Int
+  
+  // Notes
+  notes           String?
+  
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@map("purchase_order_items")
+}
+
+model GoodsReceiving {
+  id              String        @id @default(uuid())
+  tenantId        String
+  
+  receivingNumber String        @unique
+  
+  // Purchase Order
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  
+  // Delivery
+  outletId        String
+  warehouseId     String?
+  
+  // Dates
+  receivedDate    DateTime      @default(now())
+  
+  // Receiver
+  receivedBy      String
+  
+  // Status
+  status          ReceivingStatus @default(PENDING)
+  
+  // Notes
+  notes           String?
+  discrepancyNotes String?      // For quantity differences
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  items           GoodsReceivingItem[]
+  
+  @@index([tenantId])
+  @@index([purchaseOrderId])
+  @@index([outletId])
+  @@map("goods_receivings")
+}
+
+enum ReceivingStatus {
+  PENDING
+  PARTIAL
+  COMPLETED
+  REJECTED
+}
+
+model GoodsReceivingItem {
+  id              String         @id @default(uuid())
+  receivingId     String
+  receiving       GoodsReceiving @relation(fields: [receivingId], references: [id], onDelete: Cascade)
+  
+  productId       String
+  
+  // Quantities
+  quantityExpected Float
+  quantityReceived Float
+  
+  // Quality
+  qualityStatus   QualityStatus @default(ACCEPTED)
+  
+  // Batch (Feature Flag: batch_tracking)
+  batchNumber     String?
+  expiryDate      DateTime?
+  
+  // Notes
+  notes           String?
+  
+  @@index([receivingId])
+  @@index([productId])
+  @@map("goods_receiving_items")
+}
+
+enum QualityStatus {
+  ACCEPTED
+  REJECTED
+  PARTIAL
+}
+
+model SupplierPayment {
+  id              String        @id @default(uuid())
+  tenantId        String
+  
+  paymentNumber   String        @unique
+  
+  // Supplier
+  supplierId      String
+  supplier        Supplier      @relation(fields: [supplierId], references: [id])
+  
+  // Purchase Order (optional)
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  
+  // Payment
+  paymentDate     DateTime      @default(now())
+  amount          Int           // in cents
+  paymentMethod   String        // bank_transfer, cash, check, etc
+  reference       String?       // Bank ref, check number
+  
+  // Status
+  status          PaymentStatus @default(PENDING)
+  
+  // Notes
+  notes           String?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([tenantId])
+  @@index([supplierId])
+  @@index([purchaseOrderId])
+  @@index([status])
+  @@map("supplier_payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
 }
