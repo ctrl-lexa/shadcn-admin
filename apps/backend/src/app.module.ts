@@ -16,6 +16,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { BillingModule } from './billing/billing.module';
 import { FileUploadModule } from './file-upload/file-upload.module';
+import { EmailModule } from './email/email.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
@@ -39,6 +40,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     FeatureFlagsModule,
     BillingModule,
     FileUploadModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [
