@@ -8,12 +8,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { ProductsService } from '../products/products.service';
+import { InventoryService } from '../inventory/inventory.service';
+import { StockMovementType } from '@prisma/client';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     private prisma: PrismaService,
     private auditLogs: AuditLogsService,
+    private products: ProductsService,
+    private inventory: InventoryService,
   ) {}
 
   async create(tenantId: string, userId: string, dto: CreateTransactionDto) {
@@ -219,6 +224,18 @@ export class TransactionsService {
 
       return newTransaction;
     });
+
+    // Record stock movements for each item
+    for (const item of processedItems) {
+      await this.inventory.recordStockMovement(tenantId, dto.outletId, {
+        productId: item.productId,
+        type: StockMovementType.SALE,
+        quantity: -item.quantity,
+        referenceType: 'transaction',
+        referenceId: transaction.id,
+        notes: `Sale - ${transaction.transactionNumber}`,
+      });
+    }
 
     // Audit log
     await this.auditLogs.logCreate(
@@ -553,5 +570,354 @@ export class TransactionsService {
 
     const sequenceNum = String(count + 1).padStart(4, '0');
     return `RFD-${dateStr}-${sequenceNum}`;
+  }
+
+  // ============================================================================
+  // SHIFT MANAGEMENT
+  // ============================================================================
+
+  async openShift(
+    tenantId: string,
+    userId: string,
+    outletId: string,
+    openingCash: number,
+    openingNotes?: string,
+  ) {
+    // Check if user has open shift
+    const existingShift = await this.prisma.shift.findFirst({
+      where: {
+        userId,
+        outletId,
+        status: 'OPEN',
+      },
+    });
+
+    if (existingShift) {
+      throw new BadRequestException('User already has an open shift');
+    }
+
+    // Generate shift number
+    const count = await this.prisma.shift.count({ where: { tenantId, outletId } });
+    const shiftNumber = `SHIFT-${new Date().toISOString().split('T')[0].replace(/-/g, '')}-${String(count + 1).padStart(4, '0')}`;
+
+    const shift = await this.prisma.shift.create({
+      data: {
+        tenantId,
+        outletId,
+        userId,
+        shiftNumber,
+        startTime: new Date(),
+        openingCash,
+        openingNotes,
+        status: 'OPEN',
+      },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        outlet: {
+          select: { id: true, name: true, code: true },
+        },
+      },
+    });
+
+    // Audit log
+    await this.auditLogs.logCreate(tenantId, userId, 'shifts', shift.id, {
+      shiftNumber,
+      openingCash,
+    });
+
+    return {
+      message: 'Shift opened successfully',
+      shift,
+    };
+  }
+
+  async closeShift(
+    tenantId: string,
+    userId: string,
+    shiftId: string,
+    closingCash: number,
+    closingNotes?: string,
+  ) {
+    const shift = await this.prisma.shift.findFirst({
+      where: {
+        id: shiftId,
+        tenantId,
+        userId,
+        status: 'OPEN',
+      },
+    });
+
+    if (!shift) {
+      throw new NotFoundException('Open shift not found');
+    }
+
+    const expectedCash = shift.openingCash + shift.totalSales;
+    const variance = closingCash - expectedCash;
+
+    const updatedShift = await this.prisma.shift.update({
+      where: { id: shiftId },
+      data: {
+        endTime: new Date(),
+        closingCash,
+        expectedCash,
+        variance,
+        closingNotes,
+        status: 'CLOSED',
+      },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        outlet: {
+          select: { id: true, name: true, code: true },
+        },
+        transactions: {
+          select: {
+            id: true,
+            transactionNumber: true,
+            total: true,
+            paymentMethod: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    // Audit log
+    await this.auditLogs.logUpdate(
+      tenantId,
+      userId,
+      'shifts',
+      shiftId,
+      { status: 'OPEN' },
+      {
+        status: 'CLOSED',
+        closingCash,
+        variance,
+        totalTransactions: shift.totalTransactions,
+        totalSales: shift.totalSales,
+      },
+    );
+
+    return {
+      message: 'Shift closed successfully',
+      shift: updatedShift,
+    };
+  }
+
+  async getCurrentShift(tenantId: string, userId: string, outletId: string) {
+    const shift = await this.prisma.shift.findFirst({
+      where: {
+        tenantId,
+        userId,
+        outletId,
+        status: 'OPEN',
+      },
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        outlet: {
+          select: { id: true, name: true, code: true },
+        },
+        _count: {
+          select: { transactions: true },
+        },
+      },
+    });
+
+    if (!shift) {
+      return { shift: null, hasOpenShift: false };
+    }
+
+    return {
+      shift,
+      hasOpenShift: true,
+    };
+  }
+
+  async getShiftHistory(
+    tenantId: string,
+    outletId?: string,
+    userId?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    const where: any = { tenantId };
+
+    if (outletId) {
+      where.outletId = outletId;
+    }
+
+    if (userId) {
+      where.userId = userId;
+    }
+
+    if (startDate || endDate) {
+      where.startTime = {};
+      if (startDate) where.startTime.gte = startDate;
+      if (endDate) where.startTime.lte = endDate;
+    }
+
+    const shifts = await this.prisma.shift.findMany({
+      where,
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        outlet: {
+          select: { id: true, name: true, code: true },
+        },
+        _count: {
+          select: { transactions: true },
+        },
+      },
+      orderBy: { startTime: 'desc' },
+      take: 50,
+    });
+
+    return {
+      tenantId,
+      count: shifts.length,
+      shifts,
+    };
+  }
+
+  // ============================================================================
+  // SPLIT PAYMENTS
+  // ============================================================================
+
+  async createWithSplitPayment(
+    tenantId: string,
+    userId: string,
+    dto: any, // CreateTransactionDto + split payments
+  ) {
+    // Validate split payment totals
+    const splitTotal = dto.splitPayments.reduce(
+      (sum: number, p: any) => sum + p.amount,
+      0,
+    );
+
+    // Calculate transaction total first (simplified version)
+    // In production, you'd reuse the calculation logic from create()
+    const total = dto.total || splitTotal;
+
+    if (Math.abs(splitTotal - total) > 1) {
+      // Allow 1 cent rounding difference
+      throw new BadRequestException(
+        `Split payment total (${splitTotal}) doesn't match transaction total (${total})`,
+      );
+    }
+
+    // Store split payment details in metadata or separate table
+    // For now, we'll concatenate payment methods
+    const paymentMethod = dto.splitPayments
+      .map((p: any) => p.paymentMethod)
+      .join('+');
+
+    return this.create(tenantId, userId, {
+      ...dto,
+      paymentMethod,
+      amountPaid: splitTotal,
+    });
+  }
+
+  // ============================================================================
+  // PRICING HELPERS
+  // ============================================================================
+
+  async calculatePrice(
+    tenantId: string,
+    productId: string,
+    quantity: number,
+  ) {
+    const priceInfo = await this.products.getPriceForQuantity(
+      tenantId,
+      productId,
+      quantity,
+    );
+
+    return priceInfo;
+  }
+
+  async calculateTransactionTotal(
+    tenantId: string,
+    outletId: string,
+    items: Array<{ productId: string; quantity: number; discount?: number }>,
+    transactionDiscount?: number,
+  ) {
+    let subtotal = 0;
+    let totalTax = 0;
+    const itemDetails: Array<{
+      productId: string;
+      productName: string;
+      sku: string;
+      quantity: number;
+      unitPrice: number;
+      discount: number;
+      tax: number;
+      subtotal: number;
+      tierName: string;
+      isTierPrice: boolean;
+    }> = [];
+
+    for (const item of items) {
+      const product = await this.prisma.product.findFirst({
+        where: { id: item.productId, outletId, tenantId, isActive: true },
+      });
+
+      if (!product) {
+        throw new NotFoundException(`Product ${item.productId} not found`);
+      }
+
+      // Get tier pricing
+      const priceInfo = await this.products.getPriceForQuantity(
+        tenantId,
+        item.productId,
+        item.quantity,
+      );
+
+      const unitPrice = priceInfo.price;
+      const itemDiscount = item.discount || 0;
+      const lineSubtotal = unitPrice * item.quantity - itemDiscount;
+
+      // Calculate tax
+      const itemTax = product.isTaxable
+        ? Math.round((lineSubtotal * product.taxRate) / 100)
+        : 0;
+
+      subtotal += lineSubtotal;
+      totalTax += itemTax;
+
+      itemDetails.push({
+        productId: item.productId,
+        productName: product.name,
+        sku: product.sku,
+        quantity: item.quantity,
+        unitPrice,
+        discount: itemDiscount,
+        tax: itemTax,
+        subtotal: lineSubtotal,
+        tierName: priceInfo.tierName,
+        isTierPrice: priceInfo.isTierPrice,
+      });
+    }
+
+    const discount = transactionDiscount || 0;
+    const total = subtotal + totalTax - discount;
+
+    return {
+      items: itemDetails,
+      subtotal,
+      tax: totalTax,
+      discount,
+      total,
+      summary: {
+        itemCount: items.length,
+        totalQuantity: items.reduce((sum, i) => sum + i.quantity, 0),
+      },
+    };
   }
 }

@@ -197,11 +197,7 @@ export class InventoryService {
         },
       },
       include: {
-        items: {
-          include: {
-            product: { select: { name: true, sku: true } },
-          },
-        },
+        items: true,
       },
     });
 
@@ -238,11 +234,7 @@ export class InventoryService {
     const adjustments = await this.prisma.stockAdjustment.findMany({
       where,
       include: {
-        items: {
-          include: {
-            product: { select: { name: true, sku: true, unit: true } },
-          },
-        },
+        items: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -258,11 +250,7 @@ export class InventoryService {
     const adjustment = await this.prisma.stockAdjustment.findFirst({
       where: { id: adjustmentId, tenantId },
       include: {
-        items: {
-          include: {
-            product: { select: { name: true, sku: true, unit: true, currentStock: true } },
-          },
-        },
+        items: true,
       },
     });
 
@@ -316,13 +304,13 @@ export class InventoryService {
       });
 
       // Audit log
-      await this.auditLogs.logAction(
+      await this.auditLogs.logUpdate(
         tenantId,
         userId,
-        'APPROVE',
         'stock_adjustments',
         adjustmentId,
-        { notes: dto.notes },
+        { status: AdjustmentStatus.PENDING },
+        { status: AdjustmentStatus.APPROVED, notes: dto.notes },
       );
 
       return {
@@ -341,13 +329,13 @@ export class InventoryService {
       });
 
       // Audit log
-      await this.auditLogs.logAction(
+      await this.auditLogs.logUpdate(
         tenantId,
         userId,
-        'REJECT',
         'stock_adjustments',
         adjustmentId,
-        { notes: dto.notes },
+        { status: AdjustmentStatus.PENDING },
+        { status: AdjustmentStatus.REJECTED, notes: dto.notes },
       );
 
       return {
@@ -499,13 +487,13 @@ export class InventoryService {
           },
         });
 
-        await this.auditLogs.logAction(
+        await this.auditLogs.logUpdate(
           tenantId,
           userId,
-          'APPROVE',
           'stock_transfers',
           transferId,
-          { notes: dto.notes },
+          { status: TransferStatus.PENDING },
+          { status: TransferStatus.APPROVED, notes: dto.notes },
         );
 
         return { message: 'Transfer approved successfully' };
