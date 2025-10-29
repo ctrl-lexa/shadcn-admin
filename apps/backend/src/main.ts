@@ -36,6 +36,7 @@ async function bootstrap() {
     .addTag('outlets', 'Outlet management')
     .addTag('products', 'Product management')
     .addTag('transactions', 'Transaction (POS) management')
+    .addTag('audit-logs', 'Audit log & activity tracking')
     .addTag('test', 'Test endpoints for RBAC & Multi-tenancy')
     .addBearerAuth(
       {

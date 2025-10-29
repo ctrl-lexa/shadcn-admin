@@ -298,6 +298,13 @@ async function main() {
       description: 'Manage System Settings',
     },
     {
+      code: 'system.audit.read.tenant',
+      resource: 'system',
+      action: 'audit',
+      scope: 'tenant',
+      description: 'View Audit Logs',
+    },
+    {
       code: 'system.delete.tenant',
       resource: 'system',
       action: 'delete',

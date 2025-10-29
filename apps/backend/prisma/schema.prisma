@@ -796,16 +796,23 @@ model AuditLog {
   user        User?    @relation(fields: [userId], references: [id])
   
   // Action
-  action      String   // create, update, delete, login, etc
-  resource    String   // product, transaction, user, etc
-  resourceId  String?
+  action      AuditAction   // CREATE, UPDATE, DELETE, LOGIN, etc
+  resource    String        // product, transaction, user, outlet, etc
+  resourceId  String?       // ID of the affected resource
   
   // Details
-  changes     Json?    // Before/after snapshot
+  oldValues   Json?         // State before change
+  newValues   Json?         // State after change
+  changes     Json?         // Computed diff for quick access
   
   // Context
   ipAddress   String?
   userAgent   String?
+  metadata    Json?         // Additional context (geolocation, device info, etc)
+  
+  // Status
+  status      AuditStatus @default(SUCCESS) // SUCCESS, FAILED, PENDING
+  errorMessage String?      // If action failed
   
   // Timestamp
   createdAt   DateTime @default(now())
@@ -814,6 +821,32 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([resource])
+  @@index([resourceId])
   @@index([createdAt])
+  @@index([status])
   @@map("audit_logs")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  PASSWORD_CHANGE
+  PERMISSION_CHANGE
+  ROLE_CHANGE
+  REFUND
+  VOID
+  EXPORT
+  IMPORT
+  APPROVE
+  REJECT
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAILED
+  PENDING
 }
