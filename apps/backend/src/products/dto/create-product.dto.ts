@@ -54,6 +54,14 @@ export class CreateProductDto {
   @IsUUID()
   categoryId?: string;
 
+  @ApiPropertyOptional({
+    description: 'Supplier ID',
+    example: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID()
+  supplierId?: string;
+
   @ApiProperty({
     description: 'Selling price in cents',
     example: 25000,
@@ -111,6 +119,24 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   unit?: string;
+
+  @ApiPropertyOptional({
+    description: 'Track batch numbers (Feature: batch_tracking)',
+    example: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  trackBatch?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Track expiry dates (Feature: batch_tracking)',
+    example: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  trackExpiry?: boolean;
 
   @ApiPropertyOptional({
     description: 'Product image URL',
