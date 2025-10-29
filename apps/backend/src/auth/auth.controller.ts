@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Request } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -54,8 +55,10 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Request() req: any) {
+    const ipAddress = req.ip || req.connection?.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    return this.authService.login(dto, ipAddress, userAgent);
   }
 
   @Public()
@@ -65,8 +68,10 @@ export class AuthController {
   @ApiBody({ type: RefreshTokenDto })
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
-  async refresh(@CurrentUser() user: any, @Body() dto: RefreshTokenDto) {
-    return this.authService.refreshToken(user.userId, dto.refreshToken);
+  async refresh(@CurrentUser() user: any, @Body() dto: RefreshTokenDto, @Request() req: any) {
+    const ipAddress = req.ip || req.connection?.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    return this.authService.refreshToken(user.userId, dto.refreshToken, ipAddress, userAgent);
   }
 
   @ApiBearerAuth('JWT-auth')
@@ -74,8 +79,10 @@ export class AuthController {
   @Post('logout')
   @ApiOperation({ summary: 'Logout user' })
   @ApiResponse({ status: 200, description: 'User logged out successfully' })
-  async logout(@CurrentUser() user: any, @Body() dto: RefreshTokenDto) {
-    return this.authService.logout(user.userId, dto.refreshToken);
+  async logout(@CurrentUser() user: any, @Body() dto: RefreshTokenDto, @Request() req: any) {
+    const ipAddress = req.ip || req.connection?.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    return this.authService.logout(user.userId, dto.refreshToken, ipAddress, userAgent);
   }
 
   @ApiBearerAuth('JWT-auth')
@@ -101,5 +108,27 @@ export class AuthController {
   })
   async getProfile(@CurrentUser() user: any) {
     return { user };
+  }
+
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @ApiOperation({ summary: 'Change user password' })
+  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid current password' })
+  async changePassword(
+    @CurrentUser() user: any, 
+    @Body() dto: ChangePasswordDto,
+    @Request() req: any,
+  ) {
+    const ipAddress = req.ip || req.connection?.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    return this.authService.changePassword(
+      user.userId,
+      dto.currentPassword,
+      dto.newPassword,
+      ipAddress,
+      userAgent,
+    );
   }
 }

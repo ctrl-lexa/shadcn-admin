@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -10,6 +11,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private auditLogs: AuditLogsService,
   ) {}
 
   async register(dto: RegisterDto, tenantId: string) {
@@ -56,7 +58,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
     // Find user by username or email
     const user = await this.prisma.user.findFirst({
       where: {
@@ -81,11 +83,44 @@ export class AuthService {
     });
 
     if (!user) {
+      // Log failed login attempt
+      await this.auditLogs.log({
+        tenantId: 'unknown', // No tenant context on failed login
+        userId: 'unknown',
+        action: 'LOGIN_FAILED',
+        resource: 'auth',
+        resourceId: dto.usernameOrEmail,
+        newValues: {
+          reason: 'User not found',
+          attemptedIdentifier: dto.usernameOrEmail,
+        },
+        ipAddress,
+        userAgent,
+        status: 'FAILED',
+        errorMessage: 'Invalid credentials',
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Check if user is active
     if (!user.isActive) {
+      // Log failed login attempt
+      await this.auditLogs.log({
+        tenantId: user.tenantId,
+        userId: user.id,
+        action: 'LOGIN_FAILED',
+        resource: 'auth',
+        resourceId: user.id,
+        newValues: {
+          reason: 'Account inactive',
+          username: user.username,
+          email: user.email,
+        },
+        ipAddress,
+        userAgent,
+        status: 'FAILED',
+        errorMessage: 'User account is inactive',
+      });
       throw new UnauthorizedException('User account is inactive');
     }
 
@@ -93,6 +128,23 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
     
     if (!isPasswordValid) {
+      // Log failed login attempt
+      await this.auditLogs.log({
+        tenantId: user.tenantId,
+        userId: user.id,
+        action: 'LOGIN_FAILED',
+        resource: 'auth',
+        resourceId: user.id,
+        newValues: {
+          reason: 'Invalid password',
+          username: user.username,
+          email: user.email,
+        },
+        ipAddress,
+        userAgent,
+        status: 'FAILED',
+        errorMessage: 'Invalid credentials',
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -112,6 +164,21 @@ export class AuthService {
       ? user.role.permissions.map((rp) => rp.permission.code)
       : [];
 
+    // Log successful login
+    await this.auditLogs.logLogin(
+      user.tenantId,
+      user.id,
+      true,
+      ipAddress,
+      userAgent,
+      {
+        username: user.username,
+        email: user.email,
+        role: user.role?.name,
+        outlet: user.outlet?.name,
+      },
+    );
+
     return {
       user: {
         ...this.sanitizeUser(user),
@@ -121,7 +188,7 @@ export class AuthService {
     };
   }
 
-  async refreshToken(userId: string, refreshToken: string) {
+  async refreshToken(userId: string, refreshToken: string, ipAddress?: string, userAgent?: string) {
     // Verify refresh token exists and not revoked
     const tokenRecord = await this.prisma.refreshToken.findUnique({
       where: { token: refreshToken },
@@ -129,10 +196,42 @@ export class AuthService {
     });
 
     if (!tokenRecord || tokenRecord.revokedAt) {
+      // Log failed refresh attempt
+      if (tokenRecord?.user) {
+        await this.auditLogs.log({
+          tenantId: tokenRecord.user.tenantId,
+          userId: tokenRecord.user.id,
+          action: 'LOGIN_FAILED',
+          resource: 'auth',
+          resourceId: tokenRecord.user.id,
+          newValues: {
+            reason: 'Invalid or revoked refresh token',
+          },
+          ipAddress,
+          userAgent,
+          status: 'FAILED',
+          errorMessage: 'Invalid refresh token',
+        });
+      }
       throw new UnauthorizedException('Invalid refresh token');
     }
 
     if (new Date() > tokenRecord.expiresAt) {
+      // Log expired token
+      await this.auditLogs.log({
+        tenantId: tokenRecord.user.tenantId,
+        userId: tokenRecord.user.id,
+        action: 'LOGIN_FAILED',
+        resource: 'auth',
+        resourceId: tokenRecord.user.id,
+        newValues: {
+          reason: 'Refresh token expired',
+        },
+        ipAddress,
+        userAgent,
+        status: 'FAILED',
+        errorMessage: 'Refresh token expired',
+      });
       throw new UnauthorizedException('Refresh token expired');
     }
 
@@ -153,13 +252,41 @@ export class AuthService {
 
     const tokens = await this.generateTokens(user!);
 
+    // Log successful token refresh
+    await this.auditLogs.log({
+      tenantId: user!.tenantId,
+      userId: user!.id,
+      action: 'LOGIN',
+      resource: 'auth',
+      resourceId: user!.id,
+      newValues: {
+        action: 'Token refresh',
+        username: user!.username,
+        email: user!.email,
+      },
+      ipAddress,
+      userAgent,
+      status: 'SUCCESS',
+    });
+
     return {
       user: this.sanitizeUser(user!),
       ...tokens,
     };
   }
 
-  async logout(userId: string, refreshToken: string) {
+  async logout(userId: string, refreshToken: string, ipAddress?: string, userAgent?: string) {
+    // Get user info for audit log
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        tenantId: true,
+        username: true,
+        email: true,
+      },
+    });
+
     // Revoke refresh token
     await this.prisma.refreshToken.updateMany({
       where: {
@@ -171,7 +298,91 @@ export class AuthService {
       },
     });
 
+    // Log logout
+    if (user) {
+      await this.auditLogs.log({
+        tenantId: user.tenantId,
+        userId: user.id,
+        action: 'LOGOUT',
+        resource: 'auth',
+        resourceId: user.id,
+        newValues: {
+          username: user.username,
+          email: user.email,
+        },
+        ipAddress,
+        userAgent,
+        status: 'SUCCESS',
+      });
+    }
+
     return { message: 'Logged out successfully' };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    // Get user
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    
+    if (!isPasswordValid) {
+      // Log failed password change
+      await this.auditLogs.log({
+        tenantId: user.tenantId,
+        userId: user.id,
+        action: 'PASSWORD_CHANGE',
+        resource: 'auth',
+        resourceId: user.id,
+        newValues: {
+          reason: 'Invalid current password',
+        },
+        ipAddress,
+        userAgent,
+        status: 'FAILED',
+        errorMessage: 'Invalid current password',
+      });
+      throw new UnauthorizedException('Invalid current password');
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newPasswordHash },
+    });
+
+    // Log successful password change
+    await this.auditLogs.log({
+      tenantId: user.tenantId,
+      userId: user.id,
+      action: 'PASSWORD_CHANGE',
+      resource: 'auth',
+      resourceId: user.id,
+      newValues: {
+        username: user.username,
+        email: user.email,
+      },
+      ipAddress,
+      userAgent,
+      status: 'SUCCESS',
+    });
+
+    return { message: 'Password changed successfully' };
   }
 
   private async generateTokens(user: any) {
